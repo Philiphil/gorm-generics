@@ -3,6 +3,8 @@ package gorm_generics
 import (
 	"context"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
+	"sync"
 )
 
 type GormModel[E any] interface {
@@ -17,7 +19,36 @@ func NewRepository[M GormModel[E], E any](db *gorm.DB) *GormRepository[M, E] {
 }
 
 type GormRepository[M GormModel[E], E any] struct {
-	db *gorm.DB
+	db                   *gorm.DB
+	preloadAssocationsOk bool
+	preloadAssocations   bool
+	associations         []string
+}
+
+func (r *GormRepository[M, E]) EnablePreloadAssociations() *GormRepository[M, E] {
+	r.preloadAssocations = true
+	return r
+}
+func (r *GormRepository[M, E]) DisablePreloadAssociations() *GormRepository[M, E] {
+	r.preloadAssocations = true
+	return r
+}
+
+func (r *GormRepository[M, E]) SetPreloadAssociations(association bool) *GormRepository[M, E] {
+	if association {
+		r.EnablePreloadAssociations()
+	} else {
+		r.DisablePreloadAssociations()
+	}
+	return r
+}
+
+func (r *GormRepository[M, E]) setAssociations(model *M) *GormRepository[M, E] {
+	schema, _ := schema.Parse(model, &sync.Map{}, r.db.NamingStrategy)
+	for _, i := range schema.Relationships.Many2Many {
+		r.associations = append(r.associations, i.Name)
+	}
+	return r
 }
 
 func (r *GormRepository[M, E]) Insert(ctx context.Context, entity *E) error {
@@ -97,6 +128,17 @@ func (r *GormRepository[M, E]) FindWithLimit(ctx context.Context, limit int, off
 	var models []M
 
 	dbPrewarm := r.getPreWarmDbForSelect(ctx, specifications...)
+
+	if r.preloadAssocations {
+		if !r.preloadAssocationsOk {
+			var start M
+			r.setAssociations(&start)
+		}
+		for _, association := range r.associations {
+			dbPrewarm = dbPrewarm.Preload(association)
+		}
+	}
+
 	err := dbPrewarm.Limit(limit).Offset(offset).Find(&models).Error
 
 	if err != nil {
