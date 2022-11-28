@@ -2,7 +2,7 @@ package gorm_generics_test
 
 import (
 	"context"
-	gorm_generics "github.com/ompluscator/gorm-generics"
+	gorm_generics "github.com/philiphil/gorm-generics"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
