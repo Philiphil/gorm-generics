@@ -30,7 +30,7 @@ func (r *GormRepository[M, E]) EnablePreloadAssociations() *GormRepository[M, E]
 	return r
 }
 func (r *GormRepository[M, E]) DisablePreloadAssociations() *GormRepository[M, E] {
-	r.preloadAssocations = true
+	r.preloadAssocations = false
 	return r
 }
 
@@ -44,10 +44,11 @@ func (r *GormRepository[M, E]) SetPreloadAssociations(association bool) *GormRep
 }
 
 func (r *GormRepository[M, E]) setAssociations(model *M) *GormRepository[M, E] {
-	schema, _ := schema.Parse(model, &sync.Map{}, r.db.NamingStrategy)
-	for _, i := range schema.Relationships.Many2Many {
+	sc, _ := schema.Parse(model, &sync.Map{}, r.db.NamingStrategy)
+	for _, i := range sc.Relationships.Many2Many {
 		r.associations = append(r.associations, i.Name)
 	}
+	r.preloadAssocationsOk = true
 	return r
 }
 
@@ -99,7 +100,8 @@ func (r *GormRepository[M, E]) Update(ctx context.Context, entity *E) error {
 
 func (r *GormRepository[M, E]) FindByID(ctx context.Context, id any) (E, error) {
 	var model M
-	err := r.db.WithContext(ctx).First(&model, id).Error
+
+	err := r.getPreWarmDbForSelect(ctx).First(&model, id).Error
 	if err != nil {
 		return *new(E), err
 	}
@@ -122,12 +124,6 @@ func (r *GormRepository[M, E]) getPreWarmDbForSelect(ctx context.Context, specif
 	for _, s := range specification {
 		dbPrewarm = dbPrewarm.Where(s.GetQuery(), s.GetValues()...)
 	}
-	return dbPrewarm
-}
-func (r *GormRepository[M, E]) FindWithLimit(ctx context.Context, limit int, offset int, specifications ...Specification) ([]E, error) {
-	var models []M
-
-	dbPrewarm := r.getPreWarmDbForSelect(ctx, specifications...)
 
 	if r.preloadAssocations {
 		if !r.preloadAssocationsOk {
@@ -138,6 +134,12 @@ func (r *GormRepository[M, E]) FindWithLimit(ctx context.Context, limit int, off
 			dbPrewarm = dbPrewarm.Preload(association)
 		}
 	}
+	return dbPrewarm
+}
+func (r *GormRepository[M, E]) FindWithLimit(ctx context.Context, limit int, offset int, specifications ...Specification) ([]E, error) {
+	var models []M
+
+	dbPrewarm := r.getPreWarmDbForSelect(ctx, specifications...)
 
 	err := dbPrewarm.Limit(limit).Offset(offset).Find(&models).Error
 
