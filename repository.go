@@ -19,10 +19,10 @@ func NewRepository[M GormModel[E], E any](db *gorm.DB) *GormRepository[M, E] {
 }
 
 type GormRepository[M GormModel[E], E any] struct {
-	db                   *gorm.DB
-	preloadAssocationsOk bool
-	preloadAssocations   bool
-	associations         []string
+	db                 *gorm.DB
+	assocationsLoaded  bool
+	preloadAssocations bool
+	associations       []string
 }
 
 func (r *GormRepository[M, E]) EnablePreloadAssociations() *GormRepository[M, E] {
@@ -48,7 +48,7 @@ func (r *GormRepository[M, E]) setAssociations(model *M) *GormRepository[M, E] {
 	for _, i := range sc.Relationships.Many2Many {
 		r.associations = append(r.associations, i.Name)
 	}
-	r.preloadAssocationsOk = true
+	r.assocationsLoaded = true
 	return r
 }
 
@@ -126,7 +126,7 @@ func (r *GormRepository[M, E]) getPreWarmDbForSelect(ctx context.Context, specif
 	}
 
 	if r.preloadAssocations {
-		if !r.preloadAssocationsOk {
+		if !r.assocationsLoaded {
 			var start M
 			r.setAssociations(&start)
 		}
@@ -136,6 +136,7 @@ func (r *GormRepository[M, E]) getPreWarmDbForSelect(ctx context.Context, specif
 	}
 	return dbPrewarm
 }
+
 func (r *GormRepository[M, E]) FindWithLimit(ctx context.Context, limit int, offset int, specifications ...Specification) ([]E, error) {
 	var models []M
 
@@ -157,4 +158,8 @@ func (r *GormRepository[M, E]) FindWithLimit(ctx context.Context, limit int, off
 
 func (r *GormRepository[M, E]) FindAll(ctx context.Context) ([]E, error) {
 	return r.FindWithLimit(ctx, -1, -1)
+}
+
+func (r GormRepository[M, E]) GetDB() *gorm.DB {
+	return r.db
 }
