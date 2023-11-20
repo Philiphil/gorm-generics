@@ -70,7 +70,7 @@ func (r *GormRepository[M, E]) Delete(ctx context.Context, entity *E) error {
 	return nil
 }
 
-func (r *GormRepository[M, E]) DeleteById(ctx context.Context, id any) error {
+func (r *GormRepository[M, E]) DeleteByID(ctx context.Context, id any) error {
 	var start M
 	err := r.db.WithContext(ctx).Delete(&start, &id).Error
 	if err != nil {
