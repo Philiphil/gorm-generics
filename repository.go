@@ -7,11 +7,6 @@ import (
 	"sync"
 )
 
-type GormModel[E any] interface {
-	ToEntity() E
-	FromEntity(entity E) interface{}
-}
-
 func NewRepository[M GormModel[E], E any](db *gorm.DB) *GormRepository[M, E] {
 	return &GormRepository[M, E]{
 		db: db,
