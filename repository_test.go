@@ -115,7 +115,7 @@ func TestGormRepository_DeleteByID(t *testing.T) {
 	db, _ := getDB()
 	repository := gorm_generics.NewRepository[ProductGorm, Product](db)
 	ctx := context.Background()
-	err := repository.DeleteById(ctx, 8)
+	err := repository.DeleteByID(ctx, 8)
 	if err != nil {
 		panic(err)
 	}
